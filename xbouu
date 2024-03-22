@@ -1,0 +1,51 @@
+import requests
+from bs4 import BeautifulSoup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import ParseMode
+
+# Telegram Bot API token
+TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+
+def start(update, context):
+    update.message.reply_text("Hello! Please send me any AliExpress link to get information.")
+
+def extract_info(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        title = soup.find('meta', property='og:title')['content']
+        photo = soup.find('meta', property='og:image')['content']
+        price = soup.find('span', class_='product-price-value').text.strip()
+        direct_link = url
+
+        return title, photo, price, direct_link
+
+    except Exception as e:
+        error_message = f"Error occurred: {str(e)}"
+        return None, None, None, error_message
+
+def get_info(update, context):
+    url = update.message.text
+    title, photo, price, direct_link = extract_info(url)
+
+    if title:
+        response_message = f"<b>{title}</b>\nPrice: {price}\nDirect Link: {direct_link}"
+        context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo, caption=response_message, parse_mode=ParseMode.HTML)
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text=direct_link)
+
+def main():
+    updater = Updater(token=TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, get_info))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
