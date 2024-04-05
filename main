@@ -1,3 +1,10 @@
+# Install necessary packages
+!pip install python-telegram-bot
+!pip install requests
+!pip install beautifulsoup4
+!pip install translate
+
+# Import libraries
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 import requests
@@ -6,7 +13,7 @@ from translate import Translator
 import re
 
 # Replace 'YOUR_TOKEN' with your actual Bot token received from BotFather
-TOKEN = '7076261734:AAH4-Xs0v2IaF87lD73W3PyuMXTaCgX_VjU'
+TOKEN = 'YOUR_TOKEN'
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me an AliExpress product URL and I will get the title in Arabic (for the part after the "|") and the main image for you.')
@@ -20,8 +27,17 @@ def get_product_details(url: str) -> dict:
             title_tag = soup.find('meta', property='og:title')
             title = title_tag.get('content') if title_tag else "Product title not found."
 
-            # Replace " MAD" with " dirham" if followed by numbers
-            title = re.sub(r'\bMAD(?=\d)', '  DدرهمH  ', title)
+            # Add parentheses around the first group of numbers (including decimals) in the title
+            title = re.sub(r'(\d+(?:\.\d+)?)', r' 👈 (\1)     \n', title, count=1)
+
+            # Replace "MAD" with "ثمن المنتوج بالدرهم"
+            title = re.sub(r'\bMAD\b', ' ثمن المنتوج بالدرهم', title)
+
+            # Remove "aliexpress" from the title
+            title = re.sub(r'\baliexpress\b', '', title, flags=re.IGNORECASE)
+
+            # Replace "% OFF" with "نسبة التخفيض"
+            title = re.sub(r'(\d+%)\s*OFF', r'\1 👈 نسبة التخفيض', title)
 
             # Split title at "|"
             title_parts = title.split("|")
@@ -69,7 +85,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         if details["title_after_pipe_arabic"]:
             caption += details["title_after_pipe_arabic"]
 
-        caption += f'\nرابط الشراء: {details["url"]}'
+        caption += f'\nرابط الشراء: \n{details["url"]}'
 
         if details["image_url"]:
             update.message.reply_photo(photo=details["image_url"], caption=caption)
